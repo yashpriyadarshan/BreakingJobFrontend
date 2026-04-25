@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import CandidateHome from './pages/CandidateHome'
 import CandidateJobs from './pages/CandidateJobs'
+import Companies from './pages/Companies'
+import Community from './pages/Community'
 import RecruiterHome from './pages/RecruiterHome'
 import Auth from './pages/Auth'
 import Profile from './pages/Profile'
@@ -33,8 +35,13 @@ function App() {
       return <Profile role={role} />;
     }
 
+    if (activeTab === 'Community') {
+      return <Community />;
+    }
+
     if (role === 'FOR CANDIDATE') {
       if (activeTab === 'Jobs') return <CandidateJobs />;
+      if (activeTab === 'Companies') return <Companies />;
       return <CandidateHome />;
     } else {
       if (activeTab === 'Overview') return <RecruiterHome />;

@@ -52,6 +52,7 @@ export const getUserProfile = async () => {
     method: 'GET',
     headers: { ...getAuthHeaders() },
   });
+  console.log(response)
   console.log("user profile respinse" + response);
   if (!response.ok) throw new Error('Failed to fetch user profile');
   return response.json();
