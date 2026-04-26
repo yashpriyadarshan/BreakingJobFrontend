@@ -105,8 +105,8 @@ export const updateJobStatus = async (jobId, status) => {
   return response.json();
 };
 
-export const getCompanyJobs = async (page = 0, size = 10) => {
-  const response = await fetch(`${API_URL}/company?page=${page}&size=${size}`, {
+export const getCompanyJobs = async (companyId, page = 0, size = 10) => {
+  const response = await fetch(`${API_URL}/company?companyId=${companyId}&page=${page}&size=${size}`, {
     headers: { ...getAuthHeaders() },
   });
   if (!response.ok) {

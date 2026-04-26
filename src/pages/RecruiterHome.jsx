@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getCompanyJobs, createJob, deleteJob, updateJobStatus } from '../services/jobService';
+import { getCompany } from '../services/companyService';
+import { getApplicantsByJobId, updateApplicationStatus } from '../services/jobApplicationService';
 
 const STATUS_COLORS = {
   OPEN: 'text-[#2cbb5d] bg-[#2cbb5d]/10 border-[#2cbb5d]/20',
@@ -25,18 +27,67 @@ export default function RecruiterHome() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [companyId, setCompanyId] = useState(null);
+  const [selectedJobForApplicants, setSelectedJobForApplicants] = useState(null);
+  const [applicants, setApplicants] = useState([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+
+  const handleViewApplicants = async (job) => {
+    setSelectedJobForApplicants(job);
+    setLoadingApplicants(true);
+    try {
+      const data = await getApplicantsByJobId(job.id);
+      setApplicants(data || []);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoadingApplicants(false);
+    }
+  };
+
+  const handleUpdateApplicantStatus = async (appId, status) => {
+    try {
+      await updateApplicationStatus(appId, status);
+      setApplicants(prev => prev.map(a => a.applicationId === appId ? { ...a, status } : a));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   const fetchJobs = useCallback(async () => {
+    if (!companyId) return;
     setLoading(true);
     try {
-      const data = await getCompanyJobs(page, 10);
+      const data = await getCompanyJobs(companyId, page, 10);
       setJobs(data.content || []);
       setTotalPages(data.totalPages || 0);
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
-  }, [page]);
+  }, [companyId, page]);
 
-  useEffect(() => { fetchJobs(); }, [fetchJobs]);
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const company = await getCompany();
+        if (company && company.id) {
+          setCompanyId(company.id);
+        } else {
+          setError('Company profile not found. Please complete your profile.');
+          setLoading(false);
+        }
+      } catch (err) {
+        setError('Failed to fetch company details: ' + err.message);
+        setLoading(false);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (companyId) {
+      fetchJobs();
+    }
+  }, [fetchJobs, companyId]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -186,11 +237,13 @@ export default function RecruiterHome() {
                   )}
                 </div>
                 <div className="flex gap-6 mt-4 sm:mt-0 items-center shrink-0">
-                  <div className="flex flex-col items-center">
-                    <span className="font-bold text-lg text-white">{job.applicationCount || 0}</span>
-                    <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Applicants</span>
+                  <div 
+                    onClick={() => handleViewApplicants(job)}
+                    className="flex flex-col items-center cursor-pointer hover:bg-[#333] p-2 rounded transition-colors group/app">
+                    <span className="font-bold text-lg text-white group-hover/app:text-[#ffa116] transition-colors">{job.applicationCount || 0}</span>
+                    <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider group-hover/app:text-[#ffa116]/80">Applicants</span>
                   </div>
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center p-2">
                     <span className="font-bold text-lg text-white">{job.viewCount || 0}</span>
                     <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Views</span>
                   </div>
@@ -209,6 +262,56 @@ export default function RecruiterHome() {
           </div>
         )}
       </section>
+
+      {/* APPLICANTS MODAL */}
+      {selectedJobForApplicants && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#282828] border border-[#333] rounded-xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center p-5 border-b border-[#333] bg-[#222]">
+              <div>
+                <h2 className="text-lg font-bold text-white">Applicants</h2>
+                <p className="text-xs text-gray-400">{selectedJobForApplicants.title}</p>
+              </div>
+              <button onClick={() => setSelectedJobForApplicants(null)} className="text-gray-400 hover:text-white">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto flex-grow">
+              {loadingApplicants ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-8 h-8 border-4 border-[#ffa116] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : applicants.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No applicants yet.</div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {applicants.map(app => (
+                    <div key={app.applicationId} className="bg-[#1a1a1a] border border-[#333] p-4 rounded-lg flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-white">User #{app.userId}</div>
+                        <div className="text-xs text-gray-500">{timeAgo(app.appliedAt)}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <select 
+                          value={app.status || 'PENDING'} 
+                          onChange={(e) => handleUpdateApplicantStatus(app.applicationId, e.target.value)}
+                          className="bg-[#222] border border-[#333] text-sm text-gray-300 rounded px-3 py-1.5 focus:outline-none focus:border-[#ffa116]">
+                          <option value="PENDING">PENDING</option>
+                          <option value="REVIEWING">REVIEWING</option>
+                          <option value="INTERVIEWING">INTERVIEWING</option>
+                          <option value="ACCEPTED">ACCEPTED</option>
+                          <option value="REJECTED">REJECTED</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

@@ -72,6 +72,14 @@ export default function Settings({ role, setIsAuthenticated, setActiveTab, user,
   const handleFileUpload = async (type, e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.size >= 5 * 1024 * 1024) {
+      alert('File size must be strictly smaller than 5MB.');
+      setError('File size must be strictly smaller than 5MB.');
+      e.target.value = '';
+      return;
+    }
+
     setSaving(true); setSuccessMsg(''); setError(null);
     try {
       if (type === 'avatar') {

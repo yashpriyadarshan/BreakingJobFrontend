@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getAllOpenJobs, searchJobs, incrementViewCount } from '../services/jobService';
+import { applyToJob, getMyApplications } from '../services/jobApplicationService';
 
 // Skills can be a string (from search endpoint) or array (from list endpoint)
 function normalizeSkills(skills) {
@@ -67,6 +68,36 @@ export default function CandidateJobs() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const debounceRef = useRef(null);
+  
+  const [applying, setApplying] = useState(null);
+  const [appliedJobs, setAppliedJobs] = useState(new Set());
+
+  useEffect(() => {
+    // Fetch applied jobs on mount so we know which ones are already applied
+    const fetchApplied = async () => {
+      try {
+        const apps = await getMyApplications();
+        const appliedSet = new Set(apps.map(app => app.jobId));
+        setAppliedJobs(appliedSet);
+      } catch (err) {
+        // user might not be logged in or other error, ignore gracefully
+      }
+    };
+    fetchApplied();
+  }, []);
+
+  const handleApply = async (jobId) => {
+    setApplying(jobId);
+    try {
+      await applyToJob(jobId);
+      setAppliedJobs(prev => new Set([...prev, jobId]));
+      alert('Successfully applied to job!');
+    } catch (err) {
+      alert('Error applying: ' + err.message);
+    } finally {
+      setApplying(null);
+    }
+  };
 
   // Debounce the search query
   const handleSearchChange = (val) => {
@@ -270,9 +301,13 @@ export default function CandidateJobs() {
                           <div className="flex items-center gap-3">
                             {(job.viewCount > 0) && <span className="text-xs text-gray-500">{job.viewCount} views</span>}
                             <button
-                              onClick={e => e.stopPropagation()}
-                              className="font-medium text-sm px-6 py-2 rounded-lg bg-[#ffa116] text-[#1a1a1a] hover:bg-[#ffb03a] transition-colors shadow-sm">
-                              Apply
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApply(job.id);
+                              }}
+                              disabled={applying === job.id || appliedJobs.has(job.id)}
+                              className="font-medium text-sm px-6 py-2 rounded-lg bg-[#ffa116] text-[#1a1a1a] hover:bg-[#ffb03a] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                              {appliedJobs.has(job.id) ? 'Applied' : applying === job.id ? 'Applying...' : 'Apply'}
                             </button>
                           </div>
                         </div>
