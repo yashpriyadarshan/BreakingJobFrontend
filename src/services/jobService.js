@@ -1,4 +1,4 @@
-const API_URL = '/api/v1/jobs';
+const API_URL = 'https://job-service.politecoast-483f3a34.centralindia.azurecontainerapps.io/api/v1/jobs';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');

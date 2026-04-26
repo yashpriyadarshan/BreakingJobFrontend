@@ -9,10 +9,10 @@
  *   - ApplicationStatus enum: PENDING, REVIEWING, INTERVIEWING, ACCEPTED, REJECTED
  */
 
-const API_URL = '/api/v1/job-applications';
+const API_URL = 'https://job-service.politecoast-483f3a34.centralindia.azurecontainerapps.io/api/v1/job-applications';
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token');  
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 

@@ -1,4 +1,4 @@
-const API_URL = '/api/v1/company';
+const API_URL = 'https://company-service.politecoast-483f3a34.centralindia.azurecontainerapps.io/api/v1/company';
 
 // Helper to get auth header
 const getAuthHeaders = () => {
