@@ -8,6 +8,10 @@ import RecruiterHome from './pages/RecruiterHome'
 import Auth from './pages/Auth'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
+import RecruiterAuth from './pages/RecruiterAuth'
+import CreateJob from './pages/CreateJob'
+import Candidates from './pages/Candidates'
+import Interviews from './pages/Interviews'
 
 function App() {
   const [role, setRole] = useState(() => localStorage.getItem('role') || 'FOR CANDIDATE');
@@ -31,6 +35,10 @@ function App() {
     if (activeTab === 'Login' || activeTab === 'Signup') {
       return <Auth role={role} setRole={setRole} activeTab={activeTab} setActiveTab={setActiveTab} setIsAuthenticated={setIsAuthenticated} />;
     }
+
+    if (activeTab === 'RecruiterLogin' || activeTab === 'RecruiterSignup') {
+      return <RecruiterAuth role={role} setRole={setRole} activeTab={activeTab} setActiveTab={setActiveTab} setIsAuthenticated={setIsAuthenticated} />;
+    }
     
     if (activeTab === 'Profile') {
       return <Profile role={role} setActiveTab={setActiveTab} />;
@@ -49,8 +57,11 @@ function App() {
       if (activeTab === 'Companies') return <Companies />;
       return <CandidateHome />;
     } else {
-      if (activeTab === 'Overview') return <RecruiterHome />;
-      return <RecruiterHome />;
+      if (activeTab === 'Overview') return <RecruiterHome setActiveTab={setActiveTab} />;
+      if (activeTab === 'New Opening') return <CreateJob setActiveTab={setActiveTab} />;
+      if (activeTab === 'Candidates') return <Candidates />;
+      if (activeTab === 'Interviews') return <Interviews />;
+      return <RecruiterHome setActiveTab={setActiveTab} />;
     }
   };
 

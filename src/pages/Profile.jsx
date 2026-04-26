@@ -5,26 +5,48 @@ import {
   addSkill, deleteSkill,
   addExperience, deleteExperience,
   addProject, deleteProject,
-  uploadResume
+  uploadResume,
+  uploadProfilePicture
 } from '../services/userService';
 
 export default function Profile({ role, setActiveTab }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState('Experience');
 
-  const handleEditClick = () => {
-    setFormData(user || {});
-    setIsEditing(true);
-  };
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error('Not authenticated');
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    setFormData({});
+        const url = role === 'FOR RECRUITERS'
+          ? 'http://localhost:8082/api/v1/company'
+          : 'http://localhost:8081/api/v1/user';
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch profile details');
+        const data = await response.json();
+        setUser(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [role]);
+
+  const handleInputChange = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
@@ -40,8 +62,6 @@ export default function Profile({ role, setActiveTab }) {
           bio: formData.bio || '',
           location: formData.location || '',
           phone: formData.phone || '',
-          profilePicture: formData.profilePicture || '',
-          resumeUrl: formData.resumeUrl || ''
         };
         const updated = await updateUserProfile(user.id, payload);
         setUser(updated);
@@ -52,10 +72,6 @@ export default function Profile({ role, setActiveTab }) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleInputChange = (key, value) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleAddSkill = async (e) => {
@@ -99,28 +115,6 @@ export default function Profile({ role, setActiveTab }) {
     } catch (err) { alert(err.message); }
   };
 
-  const handleAddProject = async (e) => {
-    e.preventDefault();
-    const data = {
-      title: e.target.title.value,
-      description: e.target.description.value,
-      githubLink: e.target.githubLink.value,
-      liveLink: e.target.liveLink.value,
-    };
-    try {
-      const updated = await addProject(user.id, data);
-      setUser(updated);
-      e.target.reset();
-    } catch (err) { alert(err.message); }
-  };
-
-  const handleDeleteProject = async (projId) => {
-    try {
-      await deleteProject(user.id, projId);
-      setUser(prev => ({ ...prev, projects: prev.projects.filter(x => x.id !== projId) }));
-    } catch (err) { alert(err.message); }
-  };
-
   const handleUploadResume = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -135,332 +129,310 @@ export default function Profile({ role, setActiveTab }) {
     const file = e.target.files[0];
     if (!file) return;
     try {
+      setSaving(true);
       if (role === 'FOR RECRUITERS') {
         const updated = await uploadLogo(user.id, file);
         setUser(updated);
-        alert('Logo uploaded successfully!');
       } else {
         const updated = await uploadProfilePicture(user.id, file);
         setUser(updated);
-        alert('Profile picture uploaded successfully!');
       }
-    } catch (err) { alert(err.message); }
+      alert('Profile picture updated successfully!');
+    } catch (err) {
+      alert('Failed to upload profile picture: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Not authenticated');
-        }
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    const baseUrl = isRecruiter ? 'http://localhost:8082' : 'http://localhost:8081';
+    return `${baseUrl}${url}`;
+  };
 
-        const url = role === 'FOR RECRUITERS'
-          ? 'http://localhost:8082/api/v1/company'
-          : 'http://localhost:8081/api/v1/user';
+  if (loading) return (
+    <main className="flex-grow flex items-center justify-center bg-[#1a1a1a]">
+      <div className="w-10 h-10 border-4 border-[#ffa116] border-t-transparent rounded-full animate-spin"></div>
+    </main>
+  );
 
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+  if (error) return (
+    <main className="flex-grow flex items-center justify-center bg-[#1a1a1a] p-6 text-[#eff1f6]">
+      <div className="bg-[#282828] border border-red-500/30 p-8 rounded-2xl text-center max-w-md w-full">
+        <h2 className="text-xl font-bold mb-4">Error loading profile</h2>
+        <p className="text-gray-400 mb-6">{error}</p>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-[#333] rounded-xl font-bold">Try Again</button>
+      </div>
+    </main>
+  );
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch profile details');
-        }
-
-        const data = await response.json();
-        setUser(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [role]);
-
-  if (loading) {
-    return (
-      <main className="flex-grow flex items-center justify-center w-full min-h-[calc(100vh-56px)] bg-[#1a1a1a] p-6 text-[#eff1f6]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-[#ffa116] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-400 text-sm font-medium">Loading profile...</p>
-        </div>
-      </main>
-    );
-  }
-
-  if (error) {
-    return (
-      <main className="flex-grow flex items-center justify-center w-full min-h-[calc(100vh-56px)] bg-[#1a1a1a] p-6 text-[#eff1f6]">
-        <div className="bg-[#282828] border border-red-500/30 p-8 rounded-xl max-w-md w-full text-center">
-          <svg className="w-12 h-12 text-red-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h2 className="text-xl font-bold text-white mb-2">Profile Error</h2>
-          <p className="text-gray-400 text-sm mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#333] hover:bg-[#444] rounded-lg text-sm font-medium transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const isRecruiter = role === 'FOR RECRUITERS';
+  const displayName = isRecruiter ? user?.name : `${user?.firstName || ''} ${user?.lastName || ''}`;
 
   return (
-    <main className="flex-grow flex items-center justify-center w-full min-h-[calc(100vh-56px)] bg-[#1a1a1a] p-6 text-[#eff1f6]">
-      <div className="bg-[#282828] border border-[#333] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col relative">
-        {/* Banner */}
-        <div className="h-32 bg-gradient-to-r from-[#ffa116]/20 to-[#ffa116]/5 border-b border-[#333]"></div>
-
-        {/* Avatar & Content */}
-        <div className="px-8 pb-8">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 -mt-12 mb-8">
-            <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl bg-[#1a1a1a] border-4 border-[#282828] shadow-lg flex items-center justify-center text-3xl font-bold text-[#ffa116] overflow-hidden">
-                {(role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture) ? (
-                  <img src={role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+    <main className="flex-grow w-full bg-[#1a1a1a] text-[#eff1f6] p-4 lg:p-10">
+      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
+        
+        {/* LEFT COLUMN: PROFILE CARD & STATS */}
+        <aside className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
+          
+          {/* PROFILE CARD */}
+          <div className="bg-[#282828] border border-[#333] rounded-3xl overflow-hidden shadow-2xl relative group">
+            <div className="h-24 bg-gradient-to-br from-[#ffa116] to-[#ffb03a] opacity-80"></div>
+            <div className="px-6 pb-8 text-center relative">
+              <div className="w-24 h-24 rounded-2xl bg-[#1a1a1a] border-4 border-[#282828] shadow-xl mx-auto -mt-12 flex items-center justify-center text-3xl font-black text-[#ffa116] overflow-hidden mb-4 relative group/avatar">
+                {user?.profilePicture ? (
+                  <img src={getImageUrl(user.profilePicture)} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  role === 'FOR RECRUITERS'
-                    ? (user?.name?.charAt(0) || '?')
-                    : (user?.firstName?.charAt(0) || user?.email?.charAt(0) || '?')
+                  displayName?.charAt(0)
                 )}
-              </div>
-              {isEditing && (
-                <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center cursor-pointer rounded-2xl transition-all border-4 border-transparent">
-                  <span className="text-white text-xs font-bold">Upload</span>
+                
+                {/* UPLOAD OVERLAY */}
+                <label className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-all">
+                  <svg className="w-6 h-6 text-white mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <span className="text-[9px] font-black text-white uppercase tracking-wider">Change</span>
                   <input type="file" className="hidden" accept="image/*" onChange={handleUploadAvatar} />
                 </label>
-              )}
-            </div>
-            <div className="flex flex-col text-center sm:text-left">
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                {role === 'FOR RECRUITERS'
-                  ? user?.name
-                  : `${user?.firstName || ''} ${user?.lastName || ''}`}
-              </h1>
-              <p className="text-gray-400 text-sm mt-1">{user?.email || (role === 'FOR RECRUITERS' ? user?.website : '')}</p>
-            </div>
-            <div className="ml-auto mt-4 sm:mt-0 flex items-center gap-3">
-              <span className="inline-block bg-[#333] text-[#ffa116] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#444] shadow-sm">
-                {user?.role || 'User'}
-              </span>
-              {isEditing ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCancel}
-                    disabled={saving}
-                    className="px-3 py-1.5 bg-gray-600 text-white text-xs font-semibold rounded-lg hover:bg-gray-500 transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-3 py-1.5 bg-[#ffa116] text-[#1a1a1a] text-xs font-semibold rounded-lg hover:bg-[#ffb03a] transition-colors disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">{displayName}</h2>
+              <p className="text-gray-400 text-xs font-bold mt-1 uppercase tracking-widest">{isRecruiter ? 'Recruiter' : 'Software Engineer'}</p>
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <span className="px-3 py-1 bg-[#2cbb5d]/10 text-[#2cbb5d] text-[10px] font-black rounded-full border border-[#2cbb5d]/20 uppercase">Available</span>
+                <span className="px-3 py-1 bg-[#333] text-gray-400 text-[10px] font-black rounded-full border border-[#444] uppercase">{user?.location || 'San Francisco'}</span>
+              </div>
+              <div className="mt-8 pt-6 border-t border-[#333] grid grid-cols-2 gap-4">
+                <div>
+                   <div className="text-lg font-black text-white">24</div>
+                   <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Jobs Applied</div>
                 </div>
-              ) : (
+                <div>
+                   <div className="text-lg font-black text-white">8</div>
+                   <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Interviews</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PROFILE STRENGTH */}
+          <div className="bg-[#282828] border border-[#333] rounded-3xl p-6">
+             <div className="flex justify-between items-end mb-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">Profile Strength</h3>
+                <span className="text-xs font-black text-[#ffa116]">85%</span>
+             </div>
+             <div className="w-full h-1.5 bg-[#333] rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#ffa116] to-[#ffb03a] w-[85%] rounded-full shadow-[0_0_10px_rgba(255,161,22,0.3)]"></div>
+             </div>
+             <p className="text-[10px] text-gray-500 mt-4 leading-relaxed font-bold">Add your <span className="text-white">GitHub profile</span> to reach 100% and get noticed by top recruiters.</p>
+          </div>
+
+          {/* RESUME SECTION */}
+          <div className="bg-[#282828] border border-[#333] rounded-3xl p-6">
+             <h3 className="text-xs font-black text-white uppercase tracking-widest mb-4">Resume</h3>
+             <div className="flex items-center gap-4 bg-[#333]/50 p-4 rounded-2xl border border-[#444]/50 group hover:border-[#ffa116]/30 transition-all cursor-pointer">
+                <div className="w-10 h-10 rounded-xl bg-[#ffa116]/10 flex items-center justify-center text-[#ffa116]">
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                <div className="flex-grow min-w-0">
+                   <div className="text-[11px] font-black text-white truncate">{user?.firstName}_Resume.pdf</div>
+                   <div className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Updated 2d ago</div>
+                </div>
+             </div>
+             <label className="mt-4 w-full py-3 rounded-xl bg-[#333] text-white text-[11px] font-black uppercase tracking-widest text-center block cursor-pointer hover:bg-[#444] transition-all border border-[#444]">
+                Update Resume
+                <input type="file" className="hidden" onChange={handleUploadResume} />
+             </label>
+          </div>
+
+        </aside>
+
+        {/* RIGHT COLUMN: TABS & DETAILS */}
+        <div className="flex-grow flex flex-col gap-8">
+          
+          {/* NAVIGATION TABS */}
+          <div className="bg-[#282828] border border-[#333] rounded-3xl p-1.5 flex gap-1 overflow-x-auto scrollbar-hide">
+             {['Experience', 'Skills', 'Projects', 'Education', 'Settings'].map(tab => (
                 <button
-                  onClick={() => setActiveTab('Settings')}
-                  className="px-3 py-1.5 bg-[#333] text-white text-xs font-semibold rounded-lg hover:bg-[#444] transition-colors flex items-center gap-2"
+                  key={tab}
+                  onClick={() => setActiveSubTab(tab)}
+                  className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeSubTab === tab ? 'bg-[#333] text-[#ffa116] shadow-xl' : 'text-gray-500 hover:text-gray-300'}`}
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Settings
+                  {tab}
                 </button>
-              )}
-            </div>
+             ))}
           </div>
 
-          {/* Details Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* TAB CONTENT */}
+          <div className="bg-[#282828] border border-[#333] rounded-[32px] p-8 lg:p-10 shadow-2xl relative overflow-hidden min-h-[500px]">
+            
+            {/* Background Decorations */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#ffa116]/5 rounded-full blur-[100px] -mr-32 -mt-32"></div>
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] -ml-32 -mb-32"></div>
 
-            <div className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5 hover:border-[#ffa116]/30 transition-colors">
-              <h3 className="text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Status</h3>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                <p className="text-sm font-medium text-white">Active</p>
-              </div>
-            </div>
-
-            {/* Display specific fields for recruiters or dynamic for others */}
-            {role === 'FOR RECRUITERS' ? (
-              ['name', 'address', 'description', 'website', 'location', 'phone'].map((key) => (
-                <div key={key} className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5 hover:border-[#ffa116]/30 transition-colors">
-                  <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">{key}</h3>
-                  {isEditing ? (
-                    key === 'description' ? (
-                      <textarea
-                        value={formData[key] || ''}
-                        onChange={(e) => handleInputChange(key, e.target.value)}
-                        className="w-full bg-[#222] border border-[#555] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116] min-h-[80px]"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={formData[key] || ''}
-                        onChange={(e) => handleInputChange(key, e.target.value)}
-                        className="w-full bg-[#222] border border-[#555] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]"
-                      />
-                    )
-                  ) : (
-                    <p className="text-sm font-medium text-white">{user?.[key] || 'Not provided'}</p>
-                  )}
+            {/* EXPERIENCE TAB */}
+            {activeSubTab === 'Experience' && (
+              <div className="relative animate-in fade-in duration-500">
+                <div className="flex justify-between items-center mb-10">
+                   <h2 className="text-2xl font-black text-white tracking-tight">Work Experience</h2>
+                   <button onClick={() => setIsEditing(!isEditing)} className="text-xs font-black text-[#ffa116] uppercase tracking-widest hover:underline transition-all">
+                      {isEditing ? 'Cancel' : '+ Add New'}
+                   </button>
                 </div>
-              ))
-            ) : (
-              ['FirstName', 'LastName', 'bio', 'location', 'phone'].map((key) => {
-                const displayKey = key === 'FirstName' ? 'First Name' : key === 'LastName' ? 'Last Name' : key;
-                return (
-                  <div key={key} className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5 hover:border-[#ffa116]/30 transition-colors">
-                    <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">{displayKey}</h3>
-                    {isEditing ? (
-                      key === 'bio' ? (
-                        <textarea
-                          value={formData[key] || formData[key.charAt(0).toLowerCase() + key.slice(1)] || ''}
-                          onChange={(e) => handleInputChange(key, e.target.value)}
-                          className="w-full bg-[#222] border border-[#555] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116] min-h-[80px]"
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={formData[key] || formData[key.charAt(0).toLowerCase() + key.slice(1)] || ''}
-                          onChange={(e) => handleInputChange(key, e.target.value)}
-                          className="w-full bg-[#222] border border-[#555] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]"
-                        />
-                      )
-                    ) : (
-                      <p className="text-sm font-medium text-white">{user?.[key] || user?.[key.charAt(0).toLowerCase() + key.slice(1)] || 'Not provided'}</p>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
 
-          {/* CANDIDATE EXTRA SECTIONS */}
-          {role !== 'FOR RECRUITERS' && (
-            <div className="mt-8 flex flex-col gap-6">
-              
-              {/* RESUME */}
-              <div className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5">
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Resume</h2>
-                  {isEditing && (
-                    <label className="cursor-pointer px-3 py-1.5 bg-[#ffa116] text-[#1a1a1a] text-xs font-semibold rounded-lg hover:bg-[#ffb03a] transition-colors">
-                      Upload Resume
-                      <input type="file" className="hidden" onChange={handleUploadResume} />
-                    </label>
-                  )}
-                </div>
-                {user?.resumeUrl ? (
-                  <a href={user.resumeUrl} target="_blank" rel="noreferrer" className="text-[#ffa116] hover:underline text-sm flex items-center gap-2 w-fit">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    View Current Resume
-                  </a>
-                ) : (
-                  <p className="text-sm text-gray-500">No resume uploaded.</p>
-                )}
-              </div>
-
-              {/* SKILLS */}
-              <div className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Skills</h2>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {user?.skills?.map((skill) => (
-                    <span key={skill.id} className="bg-[#222] border border-[#444] px-3 py-1.5 rounded-full text-xs font-medium text-gray-300 flex items-center gap-2">
-                      {skill.name}
-                      {isEditing && (
-                        <button onClick={() => handleDeleteSkill(skill.id)} className="text-red-400 hover:text-red-300 bg-transparent">&times;</button>
-                      )}
-                    </span>
-                  ))}
-                  {(!user?.skills || user.skills.length === 0) && <p className="text-sm text-gray-500">No skills added.</p>}
-                </div>
-                {isEditing && (
-                  <form onSubmit={handleAddSkill} className="flex gap-2">
-                    <input name="skillName" type="text" placeholder="Add a skill..." className="flex-1 bg-[#222] border border-[#555] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <button type="submit" className="px-3 py-1.5 bg-[#444] text-white text-xs font-semibold rounded-lg hover:bg-[#555] transition-colors">Add</button>
-                  </form>
-                )}
-              </div>
-
-              {/* EXPERIENCE */}
-              <div className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Experience</h2>
-                <div className="flex flex-col gap-4 mb-4">
-                  {user?.experiences?.map((exp) => (
-                    <div key={exp.id} className="bg-[#222] p-4 rounded-lg border border-[#444] relative">
-                      {isEditing && (
-                        <button onClick={() => handleDeleteExperience(exp.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-300 text-xs font-medium">Delete</button>
-                      )}
-                      <h4 className="text-sm font-bold text-white">{exp.role} at {exp.company}</h4>
-                      <p className="text-xs text-gray-400 mt-1">{exp.startDate} - {exp.endDate || 'Present'}</p>
-                      <p className="text-sm text-gray-300 mt-2">{exp.description}</p>
-                    </div>
-                  ))}
-                  {(!user?.experiences || user.experiences.length === 0) && <p className="text-sm text-gray-500">No experience added.</p>}
-                </div>
-                {isEditing && (
-                  <form onSubmit={handleAddExperience} className="flex flex-col gap-2 bg-[#222] p-4 rounded-lg border border-[#555]">
-                    <h4 className="text-xs font-bold text-gray-400 mb-2">ADD EXPERIENCE</h4>
-                    <input name="company" type="text" placeholder="Company" required className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <input name="role" type="text" placeholder="Role" required className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <div className="flex gap-2">
-                      <input name="startDate" type="text" placeholder="Start Date (e.g. 2020-01)" className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                      <input name="endDate" type="text" placeholder="End Date (Optional)" className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    </div>
-                    <textarea name="description" placeholder="Description" required className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116] min-h-[60px]" />
-                    <button type="submit" className="self-end px-3 py-1.5 bg-[#ffa116] text-[#1a1a1a] text-xs font-semibold rounded-lg hover:bg-[#ffb03a] transition-colors mt-2">Save Experience</button>
-                  </form>
-                )}
-              </div>
-
-              {/* PROJECTS */}
-              <div className="bg-[#333]/50 border border-[#444]/50 rounded-xl p-5">
-                <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Projects</h2>
-                <div className="flex flex-col gap-4 mb-4">
-                  {user?.projects?.map((proj) => (
-                    <div key={proj.id} className="bg-[#222] p-4 rounded-lg border border-[#444] relative">
-                      {isEditing && (
-                        <button onClick={() => handleDeleteProject(proj.id)} className="absolute top-3 right-3 text-red-400 hover:text-red-300 text-xs font-medium">Delete</button>
-                      )}
-                      <h4 className="text-sm font-bold text-white">{proj.title}</h4>
-                      <p className="text-sm text-gray-300 mt-2">{proj.description}</p>
-                      <div className="flex gap-4 mt-3">
-                        {proj.githubLink && <a href={proj.githubLink} target="_blank" rel="noreferrer" className="text-xs text-[#ffa116] hover:underline">GitHub</a>}
-                        {proj.liveLink && <a href={proj.liveLink} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:underline">Live Demo</a>}
+                <div className="flex flex-col gap-10">
+                   {user?.experiences?.map((exp, idx) => (
+                      <div key={exp.id} className="relative pl-10 group">
+                         {/* Timeline Line */}
+                         {idx !== user.experiences.length - 1 && <div className="absolute left-[19px] top-10 bottom-[-40px] w-0.5 bg-[#333]"></div>}
+                         {/* Timeline Dot */}
+                         <div className="absolute left-0 top-1.5 w-10 h-10 rounded-xl bg-[#333] border border-[#444] flex items-center justify-center group-hover:border-[#ffa116]/50 transition-all z-10">
+                            <div className="w-2 h-2 rounded-full bg-[#ffa116]"></div>
+                         </div>
+                         
+                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div>
+                               <h4 className="text-lg font-black text-white group-hover:text-[#ffa116] transition-colors">{exp.role}</h4>
+                               <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-sm font-bold text-gray-300">{exp.company}</span>
+                                  <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                  <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest">{exp.startDate} — {exp.endDate || 'Present'}</span>
+                               </div>
+                               <p className="text-sm text-gray-400 mt-4 leading-relaxed max-w-2xl">{exp.description}</p>
+                            </div>
+                            {isEditing && (
+                               <button onClick={() => handleDeleteExperience(exp.id)} className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-400 transition-colors">Delete</button>
+                            )}
+                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {(!user?.projects || user.projects.length === 0) && <p className="text-sm text-gray-500">No projects added.</p>}
-                </div>
-                {isEditing && (
-                  <form onSubmit={handleAddProject} className="flex flex-col gap-2 bg-[#222] p-4 rounded-lg border border-[#555]">
-                    <h4 className="text-xs font-bold text-gray-400 mb-2">ADD PROJECT</h4>
-                    <input name="title" type="text" placeholder="Project Title" required className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <textarea name="description" placeholder="Description" required className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116] min-h-[60px]" />
-                    <input name="githubLink" type="url" placeholder="GitHub URL (Optional)" className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <input name="liveLink" type="url" placeholder="Live URL (Optional)" className="w-full bg-[#1a1a1a] border border-[#444] rounded-md px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#ffa116]" />
-                    <button type="submit" className="self-end px-3 py-1.5 bg-[#ffa116] text-[#1a1a1a] text-xs font-semibold rounded-lg hover:bg-[#ffb03a] transition-colors mt-2">Save Project</button>
-                  </form>
-                )}
-              </div>
+                   ))}
 
-            </div>
-          )}
+                   {isEditing && (
+                      <form onSubmit={handleAddExperience} className="bg-[#333]/30 border border-[#444]/50 p-8 rounded-3xl flex flex-col gap-6 mt-4">
+                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">New Experience</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input name="role" placeholder="Your Role" className="bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all" />
+                            <input name="company" placeholder="Company Name" className="bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all" />
+                            <input name="startDate" placeholder="Start (Oct 2021)" className="bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all" />
+                            <input name="endDate" placeholder="End (Present)" className="bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all" />
+                         </div>
+                         <textarea name="description" placeholder="What did you achieve? Use bullet points for best results." rows="4" className="bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all resize-none"></textarea>
+                         <button type="submit" className="bg-[#ffa116] text-[#1a1a1a] py-4 rounded-xl text-xs font-black uppercase tracking-widest self-end px-10 hover:bg-[#ffb03a] transition-all shadow-xl shadow-[#ffa116]/10">Save Experience</button>
+                      </form>
+                   )}
+
+                   {(!user?.experiences || user.experiences.length === 0) && !isEditing && (
+                      <div className="py-12 flex flex-col items-center justify-center text-center opacity-50">
+                         <svg className="w-12 h-12 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                         <p className="text-sm font-bold text-gray-500">No work experience added yet.</p>
+                      </div>
+                   )}
+                </div>
+              </div>
+            )}
+
+            {/* SKILLS TAB */}
+            {activeSubTab === 'Skills' && (
+              <div className="relative animate-in fade-in duration-500">
+                <h2 className="text-2xl font-black text-white tracking-tight mb-10">Technical Arsenal</h2>
+                
+                <div className="flex flex-wrap gap-3 mb-12">
+                   {user?.skills?.map(skill => (
+                      <div key={skill.id} className="bg-[#333] border border-[#444] px-5 py-3 rounded-2xl flex items-center gap-3 hover:border-[#ffa116]/50 transition-all group">
+                         <span className="text-sm font-bold text-gray-200">{skill.name}</span>
+                         <button onClick={() => handleDeleteSkill(skill.id)} className="text-gray-600 hover:text-red-500 transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                         </button>
+                      </div>
+                   ))}
+                </div>
+
+                <form onSubmit={handleAddSkill} className="max-w-md bg-[#333]/30 border border-[#444]/50 p-8 rounded-3xl">
+                   <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Master a new skill</h3>
+                   <div className="flex gap-3">
+                      <input name="skillName" placeholder="e.g. Docker, Figma, AI Engineering" className="flex-grow bg-[#1a1a1a] border border-[#333] p-4 rounded-xl text-sm outline-none focus:border-[#ffa116] transition-all" />
+                      <button type="submit" className="bg-white text-black px-6 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 transition-all">Add</button>
+                   </div>
+                </form>
+              </div>
+            )}
+
+            {/* SETTINGS TAB (REDESIGNED) */}
+            {activeSubTab === 'Settings' && (
+              <div className="relative animate-in fade-in duration-500">
+                <h2 className="text-2xl font-black text-white tracking-tight mb-10">Profile Settings</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">First Name</label>
+                      <input 
+                        value={formData.FirstName || user?.firstName || ''} 
+                        onChange={(e) => handleInputChange('FirstName', e.target.value)}
+                        className="bg-[#333]/50 border border-[#444]/50 p-4 rounded-2xl text-sm text-white focus:border-[#ffa116] outline-none transition-all" 
+                      />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Last Name</label>
+                      <input 
+                        value={formData.LastName || user?.lastName || ''} 
+                        onChange={(e) => handleInputChange('LastName', e.target.value)}
+                        className="bg-[#333]/50 border border-[#444]/50 p-4 rounded-2xl text-sm text-white focus:border-[#ffa116] outline-none transition-all" 
+                      />
+                   </div>
+                   <div className="flex flex-col gap-2 md:col-span-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Bio</label>
+                      <textarea 
+                        value={formData.bio || user?.bio || ''} 
+                        onChange={(e) => handleInputChange('bio', e.target.value)}
+                        rows="4"
+                        className="bg-[#333]/50 border border-[#444]/50 p-4 rounded-2xl text-sm text-white focus:border-[#ffa116] outline-none transition-all resize-none" 
+                      />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Location</label>
+                      <input 
+                        value={formData.location || user?.location || ''} 
+                        onChange={(e) => handleInputChange('location', e.target.value)}
+                        className="bg-[#333]/50 border border-[#444]/50 p-4 rounded-2xl text-sm text-white focus:border-[#ffa116] outline-none transition-all" 
+                      />
+                   </div>
+                   <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Phone</label>
+                      <input 
+                        value={formData.phone || user?.phone || ''} 
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="bg-[#333]/50 border border-[#444]/50 p-4 rounded-2xl text-sm text-white focus:border-[#ffa116] outline-none transition-all" 
+                      />
+                   </div>
+                </div>
+
+                <div className="mt-12 flex justify-end">
+                   <button 
+                     onClick={handleSave}
+                     disabled={saving}
+                     className="bg-[#ffa116] text-[#1a1a1a] px-12 py-4 rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-[#ffb03a] transition-all shadow-xl shadow-[#ffa116]/10 disabled:opacity-50"
+                   >
+                     {saving ? 'Updating...' : 'Update Profile'}
+                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* FALLBACK FOR OTHER TABS */}
+            {(activeSubTab === 'Projects' || activeSubTab === 'Education') && (
+               <div className="py-20 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
+                  <div className="w-20 h-20 bg-[#333] rounded-3xl flex items-center justify-center mb-6 text-[#ffa116] border border-[#444]">
+                     <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-2">{activeSubTab} coming soon</h3>
+                  <p className="text-gray-400">We are fine-tuning this section to help you showcase your best work.</p>
+               </div>
+            )}
+
+          </div>
+
         </div>
+
       </div>
     </main>
   );

@@ -39,6 +39,13 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
     }
   }, [isAuthenticated, role]);
 
+  const getImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    const baseUrl = role === 'FOR RECRUITERS' ? 'http://localhost:8082' : 'http://localhost:8081';
+    return `${baseUrl}${url}`;
+  };
+
   const handleDeleteAccount = async () => {
     if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       try {
@@ -68,7 +75,15 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
 
   const handleRoleSwitch = (newRole) => {
     setRole(newRole);
-    setActiveTab(prev => (prev === 'Login' || prev === 'Signup' || prev === 'Profile' ? prev : null));
+    if (!isAuthenticated) {
+      if (newRole === 'FOR RECRUITERS') {
+        setActiveTab('RecruiterLogin');
+      } else {
+        setActiveTab('Login');
+      }
+    } else {
+      setActiveTab(prev => (prev === 'Login' || prev === 'Signup' || prev === 'Profile' ? prev : null));
+    }
   };
 
   const navLinks = role === 'FOR CANDIDATE'
@@ -109,16 +124,18 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
             <div className="hidden group-hover:block absolute top-full left-0 pt-2 w-48">
               <div className="bg-[#333] rounded-lg shadow-xl border border-[#444] overflow-hidden flex flex-col py-1">
                 <button
-                  className="text-left px-4 py-2 text-sm text-gray-300 hover:bg-[#444] hover:text-white transition-colors"
+                  className="text-left px-4 py-2 text-sm text-gray-300 hover:bg-[#444] hover:text-white transition-colors flex items-center justify-between"
                   onClick={() => handleRoleSwitch('FOR CANDIDATE')}
                 >
                   Candidate Mode
+                  {role === 'FOR CANDIDATE' && <div className="w-1.5 h-1.5 rounded-full bg-[#ffa116]"></div>}
                 </button>
                 <button
-                  className="text-left px-4 py-2 text-sm text-gray-300 hover:bg-[#444] hover:text-white transition-colors"
+                  className="text-left px-4 py-2 text-sm text-gray-300 hover:bg-[#444] hover:text-white transition-colors flex items-center justify-between"
                   onClick={() => handleRoleSwitch('FOR RECRUITERS')}
                 >
                   Recruiter Mode
+                  {role === 'FOR RECRUITERS' && <div className="w-1.5 h-1.5 rounded-full bg-[#ffa116]"></div>}
                 </button>
               </div>
             </div>
@@ -155,7 +172,7 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
               className="w-8 h-8 rounded-full bg-[#333] border border-[#444] shadow-sm flex items-center justify-center overflow-hidden hover:border-[#ffa116] transition-colors focus:outline-none"
             >
               {(role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture) ? (
-                <img src={role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                <img src={getImageUrl(role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture)} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-sm font-bold text-[#ffa116]">
                   {role === 'FOR RECRUITERS' ? (user?.name?.charAt(0) || 'R') : (user?.firstName?.charAt(0) || 'U')}
@@ -171,7 +188,7 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
                 >
                   <div className="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center overflow-hidden shrink-0">
                     {(role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture) ? (
-                      <img src={role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture} alt="Profile" className="w-full h-full object-cover" />
+                      <img src={getImageUrl(role === 'FOR RECRUITERS' ? (user?.logoUrl || user?.logo) : user?.profilePicture)} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-xl font-bold text-[#ffa116]">
                         {role === 'FOR RECRUITERS' ? (user?.name?.charAt(0) || 'R') : (user?.firstName?.charAt(0) || 'U')}
@@ -239,14 +256,14 @@ export default function Header({ role, setRole, activeTab, setActiveTab, isAuthe
         ) : (
           <div className="flex items-center text-[15px] font-medium text-gray-300">
             <button
-              onClick={() => setActiveTab('Signup')}
+              onClick={() => setActiveTab(role === 'FOR RECRUITERS' ? 'RecruiterSignup' : 'Signup')}
               className="hover:text-white transition-colors"
             >
               Register
             </button>
             <span className="mx-2 text-gray-500 font-normal">or</span>
             <button
-              onClick={() => setActiveTab('Login')}
+              onClick={() => setActiveTab(role === 'FOR RECRUITERS' ? 'RecruiterLogin' : 'Login')}
               className="hover:text-white transition-colors"
             >
               Log in
