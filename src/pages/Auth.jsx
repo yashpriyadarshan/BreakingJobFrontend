@@ -28,6 +28,9 @@ export default function Auth({ role, setRole, activeTab, setActiveTab, setIsAuth
         }
 
         const userRole = role === 'FOR CANDIDATE' ? 'CANDIDATE' : 'RECRUITER';
+        if (!userRole) {
+           throw new Error("Unable to determine user role.");
+        }
         await signup(data.firstName, data.lastName, data.email, data.password, userRole);
 
         alert('Registration successful! Please log in.');

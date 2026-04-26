@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000/reports';
+const API_URL = 'https://edda-service.politecoast-483f3a34.centralindia.azurecontainerapps.io/reports';
 
 export const getTranscript = async (userId) => {
   const response = await fetch(`${API_URL}/${userId}/transcript`, {
