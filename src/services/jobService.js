@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8082/api/v1/jobs';
+const API_URL = '/api/v1/jobs';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
@@ -7,6 +7,10 @@ const getAuthHeaders = () => {
 
 // --- Public / Candidate endpoints ---
 
+/**
+ * GET /v1/jobs?page=&size=
+ * Returns Page<JobResponse> of all OPEN jobs
+ */
 export const getAllOpenJobs = async (page = 0, size = 10) => {
   const response = await fetch(`${API_URL}?page=${page}&size=${size}`, {
     headers: { ...getAuthHeaders() },
@@ -18,6 +22,10 @@ export const getAllOpenJobs = async (page = 0, size = 10) => {
   return response.json();
 };
 
+/**
+ * GET /v1/jobs/{jobId}
+ * Returns JobResponse
+ */
 export const getJobById = async (jobId) => {
   const response = await fetch(`${API_URL}/${jobId}`, {
     headers: { ...getAuthHeaders() },
@@ -26,8 +34,14 @@ export const getJobById = async (jobId) => {
   return response.json();
 };
 
+/**
+ * GET /v1/jobs/search?keyword=&location=&skills=&employmentType=&jobType=&...&page=&size=
+ * Backend uses @GetMapping with @RequestParam — NOT a POST.
+ * Returns Page<JobResponse>
+ */
 export const searchJobs = async (params = {}) => {
   const query = new URLSearchParams();
+
   if (params.keyword) query.set('keyword', params.keyword);
   if (params.location) query.set('location', params.location);
   if (params.skills?.length) params.skills.forEach(s => query.append('skills', s));
@@ -52,6 +66,10 @@ export const searchJobs = async (params = {}) => {
   return response.json();
 };
 
+/**
+ * POST /v1/jobs/{jobId}/view
+ * Increments view count analytics
+ */
 export const incrementViewCount = async (jobId) => {
   await fetch(`${API_URL}/${jobId}/view`, {
     method: 'POST',
@@ -61,6 +79,11 @@ export const incrementViewCount = async (jobId) => {
 
 // --- Recruiter endpoints ---
 
+/**
+ * POST /v1/jobs
+ * Body: JobRequest — requires Authorization header (companyId extracted from JWT server-side)
+ * Returns JobResponse
+ */
 export const createJob = async (jobData) => {
   const response = await fetch(API_URL, {
     method: 'POST',
@@ -68,16 +91,17 @@ export const createJob = async (jobData) => {
     body: JSON.stringify(jobData),
   });
   if (!response.ok) {
-    const err = await response.text();
-    // Fallback for demo if not implemented
-    if (response.status === 404) {
-      return { id: Date.now(), ...jobData, status: 'OPEN' };
-    }
-    throw new Error(`Failed to create job: ${err}`);
+    const err = await response.text().catch(() => response.status);
+    throw new Error(`Failed to create job (${response.status}): ${err}`);
   }
   return response.json();
 };
 
+/**
+ * PUT /v1/jobs/{jobId}
+ * Body: JobRequest — requires Authorization header
+ * Returns JobResponse
+ */
 export const updateJob = async (jobId, jobData) => {
   const response = await fetch(`${API_URL}/${jobId}`, {
     method: 'PUT',
@@ -85,29 +109,49 @@ export const updateJob = async (jobId, jobData) => {
     body: JSON.stringify(jobData),
   });
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Failed to update job: ${err}`);
+    const err = await response.text().catch(() => response.status);
+    throw new Error(`Failed to update job (${response.status}): ${err}`);
   }
   return response.json();
 };
 
+/**
+ * DELETE /v1/jobs/{jobId}
+ * Requires Authorization header
+ */
 export const deleteJob = async (jobId) => {
   const response = await fetch(`${API_URL}/${jobId}`, {
     method: 'DELETE',
     headers: { ...getAuthHeaders() },
   });
-  if (!response.ok) throw new Error('Failed to delete job');
+  if (!response.ok) {
+    const err = await response.text().catch(() => response.status);
+    throw new Error(`Failed to delete job (${response.status}): ${err}`);
+  }
 };
 
+/**
+ * PATCH /v1/jobs/{jobId}/status?status={StatusType}
+ * StatusType enum values: OPEN, CLOSED, DRAFT
+ * Requires Authorization header
+ * Returns JobResponse
+ */
 export const updateJobStatus = async (jobId, status) => {
   const response = await fetch(`${API_URL}/${jobId}/status?status=${status}`, {
     method: 'PATCH',
     headers: { ...getAuthHeaders() },
   });
-  if (!response.ok) throw new Error('Failed to update job status');
+  if (!response.ok) {
+    const err = await response.text().catch(() => response.status);
+    throw new Error(`Failed to update job status (${response.status}): ${err}`);
+  }
   return response.json();
 };
 
+/**
+ * GET /v1/jobs/company?companyId=&page=&size=
+ * Returns Page<JobResponse> for a specific company
+ */
 export const getCompanyJobs = async (companyId, page = 0, size = 10) => {
   const response = await fetch(`${API_URL}/company?companyId=${companyId}&page=${page}&size=${size}`, {
     headers: { ...getAuthHeaders() },
@@ -119,6 +163,6 @@ export const getCompanyJobs = async (companyId, page = 0, size = 10) => {
   return response.json();
 };
 
-// Backward compatibility
+// Backward compatibility aliases
 export const postJob = createJob;
 export const getJobs = getAllOpenJobs;

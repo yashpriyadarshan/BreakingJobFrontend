@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8081/api/v1/user';
+const API_URL = '/api/v1/user';
 
 // Helper to get auth header
 const getAuthHeaders = () => {
@@ -176,6 +176,22 @@ export const uploadResume = async (id, file) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || 'Failed to upload resume');
+  }
+  return response.json();
+};
+
+export const generateAiInterview = async (userId) => {
+  const response = await fetch(`${API_URL}/edda/${userId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    }
+  });
+  
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Failed to generate interview meeting: ${response.status} - ${errText}`);
   }
   return response.json();
 };

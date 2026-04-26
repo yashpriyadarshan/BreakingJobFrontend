@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8080/api/v1/auth';
+const API_URL = '/api/v1/auth';
 
 export const login = async (email, password) => {
   const payload = { email, password };

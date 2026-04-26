@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8082/api/v1/company';
+const API_URL = '/api/v1/company';
 
 // Helper to get auth header
 const getAuthHeaders = () => {

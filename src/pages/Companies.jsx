@@ -221,7 +221,7 @@ export default function Companies() {
               return (
                 <div key={company?.id || idx}
                   className={`bg-[#282828] border rounded-xl overflow-hidden transition-all duration-300 ${isExpanded ? 'border-[#ffa116]/30 shadow-lg shadow-[#ffa116]/5' : 'border-[#333] hover:border-[#444]'}`}>
-                  
+
                   {/* Company Header */}
                   <div className="p-6 cursor-pointer" onClick={() => setExpandedCompany(isExpanded ? null : idx)}>
                     <div className="flex items-start gap-5">
@@ -291,7 +291,7 @@ export default function Companies() {
                                   {job.jobType && <span className="bg-[#333] text-gray-300 px-2.5 py-1 rounded text-xs font-medium">{formatLabel(job.jobType)}</span>}
                                   {job.employmentType && <span className="bg-[#333] text-gray-300 px-2.5 py-1 rounded text-xs font-medium">{formatLabel(job.employmentType)}</span>}
                                   {salary && <span className="bg-[#2cbb5d]/10 text-[#2cbb5d] px-2.5 py-1 rounded text-xs font-medium border border-[#2cbb5d]/20">{salary}/yr</span>}
-                                  {job.eddaVerificationRequired && <span className="bg-purple-500/10 text-purple-400 px-2.5 py-1 rounded text-xs font-medium border border-purple-500/20">AI Verified</span>}
+                                  {job.eddaVerificationRequired && <span className="bg-purple-500/10 text-purple-400 px-2.5 py-1 rounded text-xs font-medium border border-purple-500/20">AI Verification Interview Required</span>}
                                 </div>
 
                                 {job.description && <p className="text-sm text-gray-400 mb-4 line-clamp-2">{job.description}</p>}

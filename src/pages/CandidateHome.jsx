@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-export default function CandidateHome({ setActiveTab }) {
+export default function CandidateHome({ setActiveTab, setSearchQuery }) {
+  const [query, setQuery] = useState('');
   const trendingSearches = ["Frontend Developer", "Product Designer", "Backend Engineer", "Data Scientist"];
+
+  const handleSearch = (searchText) => {
+    const text = searchText || query;
+    if (!text.trim()) return;
+    setSearchQuery(text.trim());
+    setActiveTab('Jobs');
+  };
 
   return (
     <main className="flex-grow flex flex-col w-full relative z-10 text-[#eff1f6] bg-[#1a1a1a]">
@@ -27,25 +35,27 @@ export default function CandidateHome({ setActiveTab }) {
           </p>
 
           {/* SEARCH BAR */}
-          <div className="w-full max-w-2xl mx-auto flex flex-col sm:flex-row shadow-2xl shadow-black/50 rounded-[24px] overflow-hidden border border-[#333] group focus-within:border-[#2cbb5d]/50 transition-all">
+          <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="w-full max-w-2xl mx-auto flex flex-col sm:flex-row shadow-2xl shadow-black/50 rounded-[24px] overflow-hidden border border-[#333] group focus-within:border-[#2cbb5d]/50 transition-all">
             <div className="flex-grow flex items-center bg-[#282828] px-6">
                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                <input
                  type="text"
+                 value={query}
+                 onChange={(e) => setQuery(e.target.value)}
                  placeholder="Search by role, company, or location..."
                  className="w-full bg-transparent text-[#eff1f6] p-5 text-sm md:text-base outline-none placeholder-gray-500 font-medium"
                />
             </div>
-            <button className="bg-[#2cbb5d] text-white font-black text-xs uppercase tracking-widest px-10 py-5 sm:py-0 hover:bg-[#229c4b] transition-all whitespace-nowrap active:scale-95">
+            <button type="submit" className="bg-[#2cbb5d] text-white font-black text-xs uppercase tracking-widest px-10 py-5 sm:py-0 hover:bg-[#229c4b] transition-all whitespace-nowrap active:scale-95">
               Search Jobs
             </button>
-          </div>
+          </form>
 
           {/* TRENDING TAGS */}
           <div className="mt-10 flex flex-wrap justify-center gap-2 items-center">
             <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest mr-2">Trending:</span>
             {trendingSearches.map((tag, i) => (
-              <button key={i} className="bg-[#222] text-gray-400 border border-[#333] px-4 py-1.5 text-[11px] font-bold rounded-xl hover:bg-[#333] hover:text-white hover:border-[#444] transition-all">
+              <button key={i} onClick={() => handleSearch(tag)} className="bg-[#222] text-gray-400 border border-[#333] px-4 py-1.5 text-[11px] font-bold rounded-xl hover:bg-[#333] hover:text-white hover:border-[#444] transition-all">
                 {tag}
               </button>
             ))}

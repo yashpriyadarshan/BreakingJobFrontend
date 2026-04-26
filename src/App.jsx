@@ -21,6 +21,8 @@ function App() {
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('activeTab') || null);
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [user, setUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [meetingUrl, setMeetingUrl] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('role', role);
@@ -86,14 +88,24 @@ function App() {
       return <Settings role={role} user={user} setUser={setUser} refetchUser={refetchUser} setIsAuthenticated={setIsAuthenticated} setActiveTab={setActiveTab} />;
     }
 
+    if (activeTab === 'AiInterview' && meetingUrl) {
+      return (
+        <main className="flex-grow w-full bg-[#1a1a1a] flex flex-col h-[calc(100vh-56px)]">
+          <div className="flex-grow w-full h-full">
+            <iframe src={meetingUrl} allow="camera; microphone; fullscreen; speaker; display-capture" className="w-full h-full border-none" />
+          </div>
+        </main>
+      );
+    }
+
     if (activeTab === 'Community') {
       return <Community />;
     }
 
     if (role === 'FOR CANDIDATE') {
-      if (activeTab === 'Jobs') return <CandidateJobs />;
+      if (activeTab === 'Jobs') return <CandidateJobs initialSearchQuery={searchQuery} clearSearchQuery={() => setSearchQuery('')} />;
       if (activeTab === 'Companies') return <Companies />;
-      return <CandidateHome />;
+      return <CandidateHome setActiveTab={setActiveTab} setSearchQuery={setSearchQuery} />;
     } else {
       if (activeTab === 'Overview') return <RecruiterHome setActiveTab={setActiveTab} />;
       if (activeTab === 'New Opening') return <CreateJob setActiveTab={setActiveTab} />;
@@ -115,6 +127,7 @@ function App() {
         isAuthenticated={isAuthenticated}
         setIsAuthenticated={setIsAuthenticated}
         user={user}
+        setMeetingUrl={setMeetingUrl}
       />
       {renderContent()}
     </div>

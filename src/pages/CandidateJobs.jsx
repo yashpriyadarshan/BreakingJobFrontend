@@ -56,9 +56,9 @@ function CheckBox({ checked, onChange, label }) {
   );
 }
 
-export default function CandidateJobs() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+export default function CandidateJobs({ initialSearchQuery, clearSearchQuery }) {
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
+  const [debouncedQuery, setDebouncedQuery] = useState(initialSearchQuery || '');
   const [selectedJobTypes, setSelectedJobTypes] = useState([]);
   const [selectedEmployment, setSelectedEmployment] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -71,6 +71,13 @@ export default function CandidateJobs() {
   
   const [applying, setApplying] = useState(null);
   const [appliedJobs, setAppliedJobs] = useState(new Set());
+
+  // Clear the initial search query in parent after consuming it
+  useEffect(() => {
+    if (initialSearchQuery && clearSearchQuery) {
+      clearSearchQuery();
+    }
+  }, []);
 
   useEffect(() => {
     // Fetch applied jobs on mount so we know which ones are already applied

@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getCompanyJobs, createJob, deleteJob, updateJobStatus } from '../services/jobService';
 import { getCompany } from '../services/companyService';
 import { getApplicantsByJobId, updateApplicationStatus } from '../services/jobApplicationService';
+import { getUserById } from '../services/userService';
+import ResumeViewer from '../components/ResumeViewer';
+import Profile from './Profile';
+import TranscriptViewer from '../components/TranscriptViewer';
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
@@ -24,17 +28,49 @@ export default function RecruiterHome({ setActiveTab }) {
   const [selectedJobForApplicants, setSelectedJobForApplicants] = useState(null);
   const [applicants, setApplicants] = useState([]);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [resumeViewerUrl, setResumeViewerUrl] = useState(null);
+  const [viewTranscriptUserId, setViewTranscriptUserId] = useState(null);
 
   const handleViewApplicants = async (job) => {
     setSelectedJobForApplicants(job);
+    setSelectedProfile(null);
     setLoadingApplicants(true);
     try {
       const data = await getApplicantsByJobId(job.id);
-      setApplicants(data || []);
+      // Enrich each applicant with their user profile
+      const enriched = await Promise.all(
+        (data || []).map(async (app) => {
+          try {
+            const profile = await getUserById(app.userId);
+            return { ...app, userProfile: profile };
+          } catch {
+            return { ...app, userProfile: null };
+          }
+        })
+      );
+      setApplicants(enriched);
     } catch (err) {
       alert(err.message);
     } finally {
       setLoadingApplicants(false);
+    }
+  };
+
+  const handleViewProfile = async (app) => {
+    if (app.userProfile) {
+      setSelectedProfile(app.userProfile);
+    } else {
+      setLoadingProfile(true);
+      try {
+        const profile = await getUserById(app.userId);
+        setSelectedProfile(profile);
+      } catch (err) {
+        alert('Failed to load profile: ' + err.message);
+      } finally {
+        setLoadingProfile(false);
+      }
     }
   };
 
@@ -128,6 +164,10 @@ export default function RecruiterHome({ setActiveTab }) {
     { name: "Jane Cooper", role: "UI Designer", match: "96%", status: "Qualified", score: 95 },
     { name: "Cody Fisher", role: "Backend Eng", match: "92%", status: "Qualified", score: 92 }
   ];
+
+  if (selectedProfile) {
+    return <Profile user={selectedProfile} readOnly={true} onClose={() => setSelectedProfile(null)} />;
+  }
 
   return (
     <main className="flex-grow w-full bg-[#1a1a1a] text-[#eff1f6] p-4 lg:p-8">
@@ -386,48 +426,80 @@ export default function RecruiterHome({ setActiveTab }) {
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                  {applicants.map(app => (
-                    <div key={app.applicationId} className="bg-[#1a1a1a] border border-[#333] p-5 rounded-2xl flex justify-between items-center group hover:border-[#444] transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-[#333] border border-[#444] flex items-center justify-center text-lg font-black text-[#ffa116]">
-                           {app.userName?.charAt(0) || 'C'}
-                        </div>
-                        <div>
-                          <div className="font-black text-white text-base">{app.userName || `Candidate #${app.userId}`}</div>
-                          <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1 flex items-center gap-2">
-                             Applied {timeAgo(app.appliedAt)}
-                             <span className="w-1 h-1 rounded-full bg-gray-600"></span>
-                             Score: 88%
+                  {applicants.map(app => {
+                    const p = app.userProfile;
+                    const name = p ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : `Candidate #${app.userId}`;
+                    const initial = name.charAt(0).toUpperCase();
+                    const statusColor = {
+                      PENDING: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+                      REVIEWING: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+                      INTERVIEWING: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+                      ACCEPTED: 'text-[#2cbb5d] bg-[#2cbb5d]/10 border-[#2cbb5d]/20',
+                      REJECTED: 'text-red-400 bg-red-400/10 border-red-400/20',
+                    }[app.status] || 'text-gray-400 bg-gray-400/10 border-gray-400/20';
+                    return (
+                      <div key={app.applicationId} className="bg-[#1a1a1a] border border-[#333] p-5 rounded-2xl group hover:border-[#444] transition-all">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="w-12 h-12 rounded-xl bg-[#333] border border-[#444] flex items-center justify-center text-lg font-black text-[#ffa116] shrink-0">
+                              {p?.profilePicture ? <img src={p.profilePicture.startsWith('http') ? p.profilePicture : `${p.profilePicture}`} alt="" className="w-full h-full rounded-xl object-cover" /> : initial}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-black text-white text-base truncate">{name}</div>
+                              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1 flex items-center gap-2 flex-wrap">
+                                Applied {timeAgo(app.appliedAt)}
+                                {p?.location && <><span className="w-1 h-1 rounded-full bg-gray-600"></span>{p.location}</>}
+                              </div>
+                              {p?.skills?.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {p.skills.slice(0, 4).map(s => <span key={s.id || s.name} className="text-[9px] bg-[#333] text-gray-400 px-1.5 py-0.5 rounded font-bold">{s.name}</span>)}
+                                  {p.skills.length > 4 && <span className="text-[9px] text-gray-600">+{p.skills.length - 4}</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <select 
+                              value={app.status || 'PENDING'} 
+                              onChange={(e) => handleUpdateApplicantStatus(app.applicationId, e.target.value)}
+                              className={`text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:outline-none cursor-pointer transition-all border ${statusColor}`}>
+                              <option value="PENDING">PENDING</option>
+                              <option value="REVIEWING">REVIEWING</option>
+                              <option value="INTERVIEWING">INTERVIEWING</option>
+                              <option value="ACCEPTED">ACCEPTED</option>
+                              <option value="REJECTED">REJECTED</option>
+                            </select>
+                            {p?.skillVerified && (
+                              <button 
+                                onClick={() => setViewTranscriptUserId(app.userId)}
+                                title="View Transcript" 
+                                className="w-10 h-10 rounded-xl bg-[#ffa116]/10 text-[#ffa116] flex items-center justify-center hover:bg-[#ffa116] hover:text-[#1a1a1a] transition-all"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                              </button>
+                            )}
+                            <button onClick={() => handleViewProfile(app)} title="View Profile" className="w-10 h-10 rounded-xl bg-[#ffa116]/10 text-[#ffa116] flex items-center justify-center hover:bg-[#ffa116] hover:text-[#1a1a1a] transition-all">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            </button>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <select 
-                          value={app.status || 'PENDING'} 
-                          onChange={(e) => handleUpdateApplicantStatus(app.applicationId, e.target.value)}
-                          className="bg-[#222] border border-[#333] text-[11px] font-black uppercase tracking-widest text-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:border-[#ffa116] cursor-pointer hover:bg-[#333] transition-all">
-                          <option value="PENDING">PENDING</option>
-                          <option value="REVIEWING">REVIEWING</option>
-                          <option value="INTERVIEWING">INTERVIEWING</option>
-                          <option value="ACCEPTED">ACCEPTED</option>
-                          <option value="REJECTED">REJECTED</option>
-                        </select>
-                        <button className="w-10 h-10 rounded-xl bg-[#ffa116]/10 text-[#ffa116] flex items-center justify-center hover:bg-[#ffa116] hover:text-[#1a1a1a] transition-all">
-                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
             
+            {/* PROFILE DRAWER REMOVED: Now redirects to full Profile component */}
+
             <div className="p-6 bg-[#222] border-t border-[#333] flex justify-end gap-3">
                <button onClick={() => setSelectedJobForApplicants(null)} className="px-6 py-3 rounded-xl bg-[#333] text-xs font-black text-white uppercase tracking-widest hover:bg-[#444] transition-all">Close</button>
             </div>
           </div>
         </div>
       )}
+      {resumeViewerUrl && <ResumeViewer url={resumeViewerUrl} onClose={() => setResumeViewerUrl(null)} />}
+      {viewTranscriptUserId && <TranscriptViewer userId={viewTranscriptUserId} onClose={() => setViewTranscriptUserId(null)} />}
     </main>
   );
 }
