@@ -12,6 +12,7 @@ import RecruiterAuth from './pages/RecruiterAuth'
 import CreateJob from './pages/CreateJob'
 import Candidates from './pages/Candidates'
 import Interviews from './pages/Interviews'
+import RecruiterLanding from './pages/RecruiterLanding'
 import { getCompany } from './services/companyService'
 import { getUserProfile } from './services/userService'
 
@@ -98,7 +99,9 @@ function App() {
       if (activeTab === 'New Opening') return <CreateJob setActiveTab={setActiveTab} />;
       if (activeTab === 'Candidates') return <Candidates />;
       if (activeTab === 'Interviews') return <Interviews />;
-      return <RecruiterHome setActiveTab={setActiveTab} />;
+      
+      // Default for Recruiter: If authenticated show dashboard, otherwise show landing
+      return isAuthenticated ? <RecruiterHome setActiveTab={setActiveTab} /> : <RecruiterLanding setActiveTab={setActiveTab} />;
     }
   };
 
